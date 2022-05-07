@@ -27,8 +27,12 @@ type Config struct {
 }
 
 var config Config
-var heartTicker *time.Ticker
+var conn net.Conn
+
+//关机数据包 头部信息
 var offHeader = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+
+//开机数据包 头部信息
 var onHeader = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
 func main() {
@@ -47,7 +51,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("unmarshal config.yaml err: %v", err.Error())
 	}
-	go connectBamfaTCPServer()
+	go linkBamfaTCPServer()
+	go sendBamfaHeartBeat()
 	s := <-c
 	fmt.Println("stoped bamfa remote server ,", s)
 }
@@ -56,34 +61,46 @@ func FileExist(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-func connectBamfaTCPServer() {
-	conn, err := net.Dial("tcp", "bemfa.com:8344")
-	if err != nil {
-		fmt.Printf("connect failed, err : %v\n", err.Error())
-		return
-	}
-	defer conn.Close()
-	authData := fmt.Sprintf("cmd=1&uid=%s&topic=%s\r\n", config.Bamfa.Uid, config.Bamfa.Topic)
-	conn.Write([]byte(authData))
-	go sendBamfaHeartBeat(conn)
-	defer heartTicker.Stop()
+func linkBamfaTCPServer() {
 	for {
-		var recvData = make([]byte, 64)
-		n, err := conn.Read(recvData)
+		conn, err := net.Dial("tcp", "bemfa.com:8344")
+		if err != nil {
+			fmt.Printf("connect failed, err : %v\n", err.Error())
+		} else {
+			sendAuthData(conn)
+			bamfaRecv(conn)
+			conn.Close()
+			conn = nil
+		}
+		//10秒后重连
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func bamfaRecv(conn net.Conn) {
+	var buf = make([]byte, 64)
+	for {
+		n, err := conn.Read(buf)
 		if err != nil {
 			log.Printf("Read failed , err : %v\n", err)
 			break
 		}
-		realData := recvData[:n-2]
-		text := string(realData)
+		text := string(buf[:n-2])
 		go processRecv(text)
 	}
 }
 
-func sendBamfaHeartBeat(conn net.Conn) {
-	heartTicker = time.NewTicker(time.Second * 5) // 启动定时器
-	for range heartTicker.C {
-		conn.Write([]byte("ping\r\n"))
+func sendAuthData(conn net.Conn) {
+	authData := fmt.Sprintf("cmd=1&uid=%s&topic=%s\r\n", config.Bamfa.Uid, config.Bamfa.Topic)
+	conn.Write([]byte(authData))
+}
+
+func sendBamfaHeartBeat() {
+	for {
+		if conn != nil {
+			conn.Write([]byte("ping\r\n"))
+		}
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -99,6 +116,7 @@ func parseRecv(recvData string) map[string]string {
 func processRecv(recvData string) {
 	props := parseRecv(recvData)
 	if props["cmd"] == "2" {
+		// 暂时用不到topic ,后续可能 会用来区分设备
 		// topic := props["topic"]
 		msg := props["msg"]
 		wol(msg)
