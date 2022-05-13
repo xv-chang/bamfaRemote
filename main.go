@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -27,7 +28,7 @@ type Config struct {
 }
 
 var config Config
-var conn net.Conn
+var heartTicker *time.Ticker
 
 //关机数据包 头部信息
 var offHeader = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
@@ -52,7 +53,6 @@ func main() {
 		log.Fatalf("unmarshal config.yaml err: %v", err.Error())
 	}
 	go linkBamfaTCPServer()
-	go sendBamfaHeartBeat()
 	s := <-c
 	fmt.Println("stoped bamfa remote server ,", s)
 }
@@ -63,14 +63,18 @@ func FileExist(path string) bool {
 
 func linkBamfaTCPServer() {
 	for {
+		log.Printf("start connect")
 		conn, err := net.Dial("tcp", "bemfa.com:8344")
+		go sendBamfaHeartBeat(conn)
 		if err != nil {
 			fmt.Printf("connect failed, err : %v\n", err.Error())
 		} else {
 			sendAuthData(conn)
 			bamfaRecv(conn)
+			heartTicker.Stop()
 			conn.Close()
 			conn = nil
+			log.Printf("closed connection")
 		}
 		//10秒后重连
 		time.Sleep(10 * time.Second)
@@ -78,7 +82,7 @@ func linkBamfaTCPServer() {
 }
 
 func bamfaRecv(conn net.Conn) {
-	var buf = make([]byte, 64)
+	var buf = make([]byte, 1024)
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
@@ -95,26 +99,32 @@ func sendAuthData(conn net.Conn) {
 	conn.Write([]byte(authData))
 }
 
-func sendBamfaHeartBeat() {
-	for {
-		if conn != nil {
-			conn.Write([]byte("ping\r\n"))
-		}
-		time.Sleep(5 * time.Second)
+func sendBamfaHeartBeat(conn net.Conn) {
+	heartTicker = time.NewTicker(time.Second * 60)
+	for range heartTicker.C {
+		conn.Write([]byte("ping\r\n"))
 	}
 }
 
-func parseRecv(recvData string) map[string]string {
+func parseRecv(recvData string) (map[string]string, error) {
 	result := map[string]string{}
+	if !strings.Contains(recvData, "&") {
+		return nil, errors.New("msg err")
+	}
 	props := strings.Split(recvData, "&")
 	for _, prop := range props {
 		keyValue := strings.Split(prop, "=")
 		result[keyValue[0]] = keyValue[1]
 	}
-	return result
+	return result, nil
 }
 func processRecv(recvData string) {
-	props := parseRecv(recvData)
+	log.Printf("recvData:%v", recvData)
+	props, err := parseRecv(recvData)
+	if err != nil {
+		log.Printf("parseRecv err: %v,recvData: %v ", err.Error(), recvData)
+		return
+	}
 	if props["cmd"] == "2" {
 		// 暂时用不到topic ,后续可能 会用来区分设备
 		// topic := props["topic"]
