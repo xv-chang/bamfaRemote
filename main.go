@@ -119,7 +119,7 @@ func parseRecv(recvData string) (map[string]string, error) {
 	return result, nil
 }
 func processRecv(recvData string) {
-	log.Printf("recvData:%v", recvData)
+	//log.Printf("recvData:%v", recvData)
 	props, err := parseRecv(recvData)
 	if err != nil {
 		log.Printf("parseRecv err: %v,recvData: %v ", err.Error(), recvData)
