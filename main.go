@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -36,10 +37,14 @@ var offHeader = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 //开机数据包 头部信息
 var onHeader = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
+// 配置文件路径
+var confPath = flag.String("f", "config.yaml", "config.yaml file PATH")
+
 func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
-	configPath := "config.yaml"
+	flag.Parse()
+	configPath := *confPath
 	if !FileExist(configPath) {
 		log.Fatalf("file config.yaml not exist")
 	}
