@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -23,8 +24,11 @@ type Config struct {
 		Topic string
 	}
 	Wol struct {
-		Ip  string
-		Mac string
+		Ip          string
+		Mac         string
+		IsEtherwake bool `yaml:"isEtherwake"`
+		Ifname      string
+		P           string
 	}
 }
 
@@ -133,8 +137,12 @@ func processRecv(recvData string) {
 	if props["cmd"] == "2" {
 		// 暂时用不到topic ,后续可能 会用来区分设备
 		// topic := props["topic"]
-		msg := props["msg"]
-		wol(msg)
+		if config.Wol.IsEtherwake {
+			wolByEtherwake(config.Wol.Ifname, config.Wol.P)
+		} else {
+			msg := props["msg"]
+			wol(msg)
+		}
 	}
 }
 
@@ -171,4 +179,16 @@ func wol(msg string) {
 		return
 	}
 	fmt.Printf("Magic packet sent successfully to %s\n", config.Wol.Mac)
+}
+
+//
+func wolByEtherwake(ifname string, p string) {
+	cmd := exec.Command("etherwake", "-D", "-i", ifname, p)
+	err := cmd.Run()
+	log.Println(cmd)
+	if err != nil {
+		fmt.Println("Execute Command failed:" + err.Error())
+		return
+	}
+	log.Println("Execute Command finished.")
 }
