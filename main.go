@@ -38,7 +38,7 @@ var offHeader = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 var onHeader = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
 // 配置文件路径
-var confPath = flag.String("f", "config.yaml", "config.yaml file PATH")
+var confPath = flag.String("c", "config.yaml", "config.yaml file PATH")
 
 func main() {
 	c := make(chan os.Signal, 1)
