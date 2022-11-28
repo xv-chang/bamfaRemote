@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -22,8 +24,11 @@ type Config struct {
 		Topic string
 	}
 	Wol struct {
-		Ip  string
-		Mac string
+		Ip          string
+		Mac         string
+		IsEtherwake bool `yaml:"isEtherwake"`
+		Ifname      string
+		P           string
 	}
 }
 
@@ -36,10 +41,14 @@ var offHeader = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 //开机数据包 头部信息
 var onHeader = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
+// 配置文件路径
+var confPath = flag.String("c", "config.yaml", "config.yaml file PATH")
+
 func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
-	configPath := "config.yaml"
+	flag.Parse()
+	configPath := *confPath
 	if !FileExist(configPath) {
 		log.Fatalf("file config.yaml not exist")
 	}
@@ -128,8 +137,12 @@ func processRecv(recvData string) {
 	if props["cmd"] == "2" {
 		// 暂时用不到topic ,后续可能 会用来区分设备
 		// topic := props["topic"]
-		msg := props["msg"]
-		wol(msg)
+		if config.Wol.IsEtherwake {
+			wolByEtherwake(config.Wol.Ifname, config.Wol.P)
+		} else {
+			msg := props["msg"]
+			wol(msg)
+		}
 	}
 }
 
@@ -166,4 +179,16 @@ func wol(msg string) {
 		return
 	}
 	fmt.Printf("Magic packet sent successfully to %s\n", config.Wol.Mac)
+}
+
+//
+func wolByEtherwake(ifname string, p string) {
+	cmd := exec.Command("etherwake", "-D", "-i", ifname, p)
+	err := cmd.Run()
+	log.Println(cmd)
+	if err != nil {
+		fmt.Println("Execute Command failed:" + err.Error())
+		return
+	}
+	log.Println("Execute Command finished.")
 }
