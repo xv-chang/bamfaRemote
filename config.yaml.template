@@ -3,6 +3,8 @@ bamfa:
   uid: 22cc12345677777ccc
   topic: PC001
 wol:
+  #延时唤醒
+  delay: 3
   #需要控制的局域网ip
   ip: 192.168.31.47
   #需要控制的电脑mac
