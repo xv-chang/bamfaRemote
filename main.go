@@ -169,7 +169,7 @@ func wol(msg string) {
 	fmt.Printf("Magic packet sent successfully to %s\n", config.Wol.Mac)
 }
 
-// 使用Etherwake唤醒，需要系统安装Etherwake
+// 使用Etherwake唤醒，需要提前安装Etherwake
 func wolByEtherwake(ifname string, p string) {
 	cmd := exec.Command("etherwake", "-D", "-i", ifname, p)
 	err := cmd.Run()
