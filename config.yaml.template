@@ -12,9 +12,6 @@ wol:
   #是否使用Etherwake唤醒，如果使用Etherwake，以下面的参数为准
   isEtherwake: false
   #网络接口,可以参考Etherwake使用说明
-  #ifname:eth0
   ifname: br-lan
-  #mac或ip
-  #p: 00:22:44:66:88:aa 
-  #p: 192.168.1.1
+  #mac或ip,例如 p: 192.168.1.1
   p: 00:22:44:66:88:aa
