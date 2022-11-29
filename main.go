@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -49,26 +48,10 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	flag.Parse()
-	configPath := *confPath
-	if !FileExist(configPath) {
-		log.Fatalf("file config.yaml not exist")
-	}
-	configData, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		log.Fatalf("read config.yaml err: %v", err.Error())
-	}
-	config = Config{}
-	err = yaml.Unmarshal(configData, &config)
-	if err != nil {
-		log.Fatalf("unmarshal config.yaml err: %v", err.Error())
-	}
+	config = ReadConfig(*confPath)
 	go linkBamfaTCPServer()
 	s := <-c
 	fmt.Println("stoped bamfa remote server ,", s)
-}
-func FileExist(path string) bool {
-	_, err := os.Lstat(path)
-	return !os.IsNotExist(err)
 }
 
 func linkBamfaTCPServer() {
@@ -138,6 +121,7 @@ func processRecv(recvData string) {
 	if props["cmd"] == "2" {
 		// 暂时用不到topic ,后续可能 会用来区分设备
 		// topic := props["topic"]
+		config = ReadConfig(*confPath)
 		log.Printf("delay %d seconds", config.Wol.Delay)
 		time.Sleep(time.Duration(config.Wol.Delay) * time.Second)
 		if config.Wol.IsEtherwake {
@@ -195,4 +179,24 @@ func wolByEtherwake(ifname string, p string) {
 		return
 	}
 	log.Println("Execute Command finished.")
+}
+func ReadConfig(confPath string) Config {
+	var config Config
+
+	// Open YAML file
+	file, err := os.Open(confPath)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	defer file.Close()
+
+	// Decode YAML file to struct
+	if file != nil {
+		decoder := yaml.NewDecoder(file)
+		if err := decoder.Decode(&config); err != nil {
+			log.Println(err.Error())
+		}
+	}
+
+	return config
 }
