@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -23,18 +24,22 @@ type Config struct {
 		Topic string
 	}
 	Wol struct {
-		Ip  string
-		Mac string
+		Delay       int
+		Ip          string
+		Mac         string
+		IsEtherwake bool `yaml:"isEtherwake"`
+		Ifname      string
+		P           string
 	}
 }
 
 var config Config
 var heartTicker *time.Ticker
 
-//关机数据包 头部信息
+// 关机数据包 头部信息
 var offHeader = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
-//开机数据包 头部信息
+// 开机数据包 头部信息
 var onHeader = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
 // 配置文件路径
@@ -133,12 +138,19 @@ func processRecv(recvData string) {
 	if props["cmd"] == "2" {
 		// 暂时用不到topic ,后续可能 会用来区分设备
 		// topic := props["topic"]
-		msg := props["msg"]
-		wol(msg)
+		log.Printf("delay %d seconds", config.Wol.Delay)
+		time.Sleep(time.Duration(config.Wol.Delay) * time.Second)
+		if config.Wol.IsEtherwake {
+			wolByEtherwake(config.Wol.Ifname, config.Wol.P)
+		} else {
+			msg := props["msg"]
+			wol(msg)
+		}
 	}
 }
 
-/*幻数据包最简单的构成是6字节的255（FF FF FF FF FF FF FF），紧接着为目标计算机的48位MAC地址，重复16次，数据包共计102字节。
+/*
+幻数据包最简单的构成是6字节的255（FF FF FF FF FF FF FF），紧接着为目标计算机的48位MAC地址，重复16次，数据包共计102字节。
 有时数据包内还会紧接着4-6字节的密码信息。这个帧片段可以包含在任何协议中，最常见的是包含在 UDP 中。
 */
 func wol(msg string) {
@@ -171,4 +183,16 @@ func wol(msg string) {
 		return
 	}
 	fmt.Printf("Magic packet sent successfully to %s\n", config.Wol.Mac)
+}
+
+// 使用Etherwake唤醒，需要系统安装Etherwake
+func wolByEtherwake(ifname string, p string) {
+	cmd := exec.Command("etherwake", "-D", "-i", ifname, p)
+	err := cmd.Run()
+	log.Println(cmd)
+	if err != nil {
+		log.Println("Execute Command failed:" + err.Error())
+		return
+	}
+	log.Println("Execute Command finished.")
 }

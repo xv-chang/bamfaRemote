@@ -3,7 +3,18 @@ bamfa:
   uid: 22cc12345677777ccc
   topic: PC001
 wol:
+  #延时唤醒
+  delay: 3
   #需要控制的局域网ip
   ip: 192.168.31.47
   #需要控制的电脑mac
   mac: 00-00-00-00-00-00
+  #是否使用Etherwake唤醒，如果使用Etherwake，以下面的参数为准
+  isEtherwake: true
+  #网络接口,可以参考Etherwake使用说明
+  #ifname:eth0
+  ifname: br-lan
+  #mac或ip
+  #p: 00:22:44:66:88:aa 
+  #p: 192.168.1.1
+  p: 00:22:44:66:88:aa
