@@ -7,7 +7,7 @@ STOP=99
  
 start() {        
         echo start
-        /usr/share/bamfa-remote/bamfa-remote -c /usr/share/bamfa-remote/config.yaml
+        /usr/share/bamfa-remote/bamfa-remote -c /usr/share/bamfa-remote/config.yaml &
 }                 
  
 stop() {          
