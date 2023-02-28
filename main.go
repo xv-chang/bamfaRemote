@@ -58,10 +58,10 @@ func linkBamfaTCPServer() {
 	for {
 		log.Printf("start connect")
 		conn, err := net.Dial("tcp", "bemfa.com:8344")
-		go sendBamfaHeartBeat(conn)
 		if err != nil {
 			fmt.Printf("connect failed, err : %v\n", err.Error())
 		} else {
+			go sendBamfaHeartBeat(conn)
 			sendAuthData(conn)
 			bamfaRecv(conn)
 			heartTicker.Stop()
