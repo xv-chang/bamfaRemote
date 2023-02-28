@@ -133,8 +133,7 @@ func processRecv(recvData string) {
 	}
 }
 
-/*
-幻数据包最简单的构成是6字节的255（FF FF FF FF FF FF FF），紧接着为目标计算机的48位MAC地址，重复16次，数据包共计102字节。
+/*幻数据包最简单的构成是6字节的255（FF FF FF FF FF FF FF），紧接着为目标计算机的48位MAC地址，重复16次，数据包共计102字节。
 有时数据包内还会紧接着4-6字节的密码信息。这个帧片段可以包含在任何协议中，最常见的是包含在 UDP 中。
 */
 func wol(msg string) {
