@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -24,6 +23,7 @@ type Config struct {
 		Topic string
 	}
 	Wol struct {
+		Delay       int
 		Ip          string
 		Mac         string
 		IsEtherwake bool `yaml:"isEtherwake"`
@@ -35,10 +35,10 @@ type Config struct {
 var config Config
 var heartTicker *time.Ticker
 
-//关机数据包 头部信息
+// 关机数据包 头部信息
 var offHeader = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
-//开机数据包 头部信息
+// 开机数据包 头部信息
 var onHeader = []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 
 // 配置文件路径
@@ -48,36 +48,20 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	flag.Parse()
-	configPath := *confPath
-	if !FileExist(configPath) {
-		log.Fatalf("file config.yaml not exist")
-	}
-	configData, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		log.Fatalf("read config.yaml err: %v", err.Error())
-	}
-	config = Config{}
-	err = yaml.Unmarshal(configData, &config)
-	if err != nil {
-		log.Fatalf("unmarshal config.yaml err: %v", err.Error())
-	}
+	config = ReadConfig(*confPath)
 	go linkBamfaTCPServer()
 	s := <-c
 	fmt.Println("stoped bamfa remote server ,", s)
-}
-func FileExist(path string) bool {
-	_, err := os.Lstat(path)
-	return !os.IsNotExist(err)
 }
 
 func linkBamfaTCPServer() {
 	for {
 		log.Printf("start connect")
 		conn, err := net.Dial("tcp", "bemfa.com:8344")
-		go sendBamfaHeartBeat(conn)
 		if err != nil {
 			fmt.Printf("connect failed, err : %v\n", err.Error())
 		} else {
+			go sendBamfaHeartBeat(conn)
 			sendAuthData(conn)
 			bamfaRecv(conn)
 			heartTicker.Stop()
@@ -137,6 +121,9 @@ func processRecv(recvData string) {
 	if props["cmd"] == "2" {
 		// 暂时用不到topic ,后续可能 会用来区分设备
 		// topic := props["topic"]
+		config = ReadConfig(*confPath)
+		log.Printf("delay %d seconds", config.Wol.Delay)
+		time.Sleep(time.Duration(config.Wol.Delay) * time.Second)
 		if config.Wol.IsEtherwake {
 			wolByEtherwake(config.Wol.Ifname, config.Wol.P)
 		} else {
@@ -181,14 +168,34 @@ func wol(msg string) {
 	fmt.Printf("Magic packet sent successfully to %s\n", config.Wol.Mac)
 }
 
-//
+// 使用Etherwake唤醒，需要提前安装Etherwake
 func wolByEtherwake(ifname string, p string) {
 	cmd := exec.Command("etherwake", "-D", "-i", ifname, p)
 	err := cmd.Run()
 	log.Println(cmd)
 	if err != nil {
-		fmt.Println("Execute Command failed:" + err.Error())
+		log.Println("Execute Command failed:" + err.Error())
 		return
 	}
 	log.Println("Execute Command finished.")
+}
+func ReadConfig(confPath string) Config {
+	var config Config
+
+	// Open YAML file
+	file, err := os.Open(confPath)
+	if err != nil {
+		log.Println(err.Error())
+	}
+	defer file.Close()
+
+	// Decode YAML file to struct
+	if file != nil {
+		decoder := yaml.NewDecoder(file)
+		if err := decoder.Decode(&config); err != nil {
+			log.Println(err.Error())
+		}
+	}
+
+	return config
 }

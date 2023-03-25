@@ -10,12 +10,22 @@ bamfa:
   uid: 22cc12345677777ccc
   topic: PC001
 wol:
+  #延时唤醒  配合智能插座使用，可设置延迟，单位秒
+  delay: 0
   #需要控制的局域网ip
   ip: 192.168.31.47
   #需要控制的电脑mac
   mac: 00-00-00-00-00-00
+  #是否使用Etherwake唤醒，如果使用Etherwake，以下面的参数为准
+  isEtherwake: false
+  #网络接口,可以参考Etherwake使用说明
+  ifname: br-lan
+  #mac或ip,例如 p: 192.168.1.1
+  p: 00:22:44:66:88:aa
 
 ```
+
+如果Magic packet不生效，可用安装Etherwake，并设置isEtherwake: true
 
 关机需要另外一个程序配合
 
